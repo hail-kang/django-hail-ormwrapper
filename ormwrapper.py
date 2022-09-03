@@ -1,5 +1,6 @@
 import re
 from copy import deepcopy
+from collections import defaultdict
 
 class HQ:
     '''
