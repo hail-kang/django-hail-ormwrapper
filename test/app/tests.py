@@ -36,6 +36,25 @@ class MyTestCase(TestCase):
             ).one()
         return test
 
+    def do_First_조회_nesting_Second(self, first_id):
+        test = \
+            select_from(
+                model=FirstModel,
+                fields=['id', 'key', 'value'],
+                joins=[
+                    select_from(
+                        name='second',
+                        model=SecondModel,
+                        fields=['id', 'key', 'value', 'first_id'],
+                        fk='id',
+                        pk='first_id',
+                    )
+                ]
+            ).where(
+                id=first_id
+            ).one()
+        return test
+
     def do_First_목록_조회(self):
         tests = FirstModel.objects.all()
         return tests
@@ -63,6 +82,18 @@ class MyTestCase(TestCase):
         self.assertTrue(first_obj.id == first_dict['id'])
         self.assertTrue(first_obj.key == first_dict['key'])
         self.assertTrue(first_obj.value == first_dict['value'])
+
+    def test_First_생성_및_조회_nesting_Second(self):
+        first_obj = self.do_First_생성()
+        second_obj = self.do_Second_생성(first_obj.id)
+        first_dict = self.do_First_조회_nesting_Second(first_obj.id)
+        second_dict = first_dict['second']
+        self.assertTrue(first_obj.id == first_dict['id'])
+        self.assertTrue(first_obj.key == first_dict['key'])
+        self.assertTrue(first_obj.value == first_dict['value'])
+        self.assertTrue(second_obj.id == second_dict['id'])
+        self.assertTrue(second_obj.key == second_dict['key'])
+        self.assertTrue(second_obj.value == second_dict['value'])
 
     def test_First_목록_조회(self):
         for _ in range(10):
