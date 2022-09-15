@@ -26,8 +26,14 @@ class MyTestCase(TestCase):
         test.save()
         return test
 
-    def do_First_조회(self, idx):
-        test = FirstModel.objects.get(idx=idx)
+    def do_First_조회(self, first_id):
+        test = \
+            select_from(
+                model=FirstModel,
+                fields=['id', 'key', 'value'],
+            ).where(
+                id=first_id
+            ).one()
         return test
 
     def do_First_목록_조회(self):
@@ -50,6 +56,13 @@ class MyTestCase(TestCase):
                 ]
             ).list()
         return tests
+
+    def test_First_생성_및_조회(self):
+        first_obj = self.do_First_생성()
+        first_dict = self.do_First_조회(first_obj.id)
+        self.assertTrue(first_obj.id == first_dict['id'])
+        self.assertTrue(first_obj.key == first_dict['key'])
+        self.assertTrue(first_obj.value == first_dict['value'])
 
     def test_First_목록_조회(self):
         for _ in range(10):
