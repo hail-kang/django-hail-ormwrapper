@@ -150,20 +150,15 @@ class HailORMWrapper:
         parameter
             - model: db에 쿼리요청을 보낼 model
             - name: 자신이 child 요소일 때, parent에서 어떤 key값으로 불릴 지 지정함
-            - reverse: 만약 parant:child = 1:N 관계라면 reverse를 True로 설정할 수 있음
-                (추가 설명을 하자면, 쿼리를 하는 기준 테이블이 parent가 되며, join하는 테이블이 child이다.
-                예를 들어 order와 order_group은 N:1 관계이고 order에 대해 쿼리를 하면 
-                {idx:1, order_group:{idx:1}}과 같은 결과를 얻을 수 있고 reverse=False이다
-                반면에 order_group과 order는 1:N 이므로 order_group에 대해 쿼리를 하면
-                {idx:1, order:[{idx:1}, {idx:2}]}와 같은 결과를 얻을 수 있고 reverse=True이다)
-            - fk: reverse가 False일 때는 parent의 foreign_key, reverse가 True일 때는 child의 foreign_key
-            - pk: reverse가 False일 때는 child의 primary_key, reverse가 True일 때는 parent의 primary_key
+            - many: 만약 parant:child = 1:N 관계라면 many를 True로 설정할 수 있음
+            - fk: parent의 foreign_key
+            - pk: child의 primary_key
             - fields: 결과에서 보여줄 필드명 목록. 기본값은 필드 전체. 아직 별칭 기능은 구현하지 않음
             - joins: join연산을 수행할 목록, List[HailORMWrapper]
         '''
         self.model = model
         self.name = kwargs.get('name', self.model._meta.db_table)
-        self.reverse = kwargs.get('reverse', False)
+        self.many = kwargs.get('many', False)
         self.fk = kwargs.get('fk')
         self.pk = kwargs.get('pk')
         self.fields = kwargs.get('fields', [field.name for field in self.model._meta.fields])
@@ -195,7 +190,7 @@ class HailORMWrapper:
         ---------------------------------------------------
         만약 리스트 길이가 0이라면 IndexError을 발생시킬 것인데,
         길이를 검사해서 None을 반한하도록 할 것인지, 커스텀 Exception을 반환할 것인지,
-        그냥 이대로 내비둬도 문제되는 사항이 없을지 고민.
+        그냥 이대로 내둬도 문제되는 사항이 없을지 고민.
         '''
         return self.list()[0]
 
@@ -217,10 +212,10 @@ class HailORMWrapper:
 
         # join을 빠르게 수행하기 위해 indexing 저장
         for join in self.joins:
-            if join.reverse:
+            if join.many:
                 many_child = defaultdict(list)
                 for child in join.list():
-                    many_child[child[join.fk]].append(child)
+                    many_child[child[join.pk]].append(child)
                 join.indexing = many_child
             else:
                 join.indexing = { e[join.pk]: e for e in join.list() }
@@ -230,7 +225,7 @@ class HailORMWrapper:
             results.append({
                 **parent,
                 **{
-                    join.name: join.indexing.get(parent.get(join.pk if join.reverse else join.fk))
+                    join.name: join.indexing.get(parent.get(join.fk))
                     for join in self.joins
                 }
             })
@@ -260,10 +255,10 @@ class HailORMWrapper:
         results = []
         parents = self.list()
 
-        if other.reverse:
+        if other.many:
             many_child = defaultdict(list)
             for child in other.list():
-                many_child[child[other.fk]].append(child)
+                many_child[child[other.pk]].append(child)
             other.indexing = many_child
         else:
             other.indexing = { e[other.pk]: e for e in other.list() }
@@ -272,7 +267,7 @@ class HailORMWrapper:
             results.append({
                 **parent,
                 **{
-                    join.name: join.indexing.get(parent.get(join.pk if join.reverse else join.fk))
+                    join.name: join.indexing.get(parent.get(join.fk))
                     for join in self.joins
                 }
             })
@@ -280,7 +275,7 @@ class HailORMWrapper:
         kwargs = {
             'model': self.model,
             'name': self.name,
-            'reverse': self.reverse,
+            'many': self.many,
             'fk': self.fk,
             'pk': self.pk,
             'fields': self.fields,
@@ -297,7 +292,7 @@ class HailORMWrapper:
 '''
 CamelCase를 따르는 클래스 명명 규칙과, 클래스 목적에 맞는 이름을 붙이기 위해
 HailORMWrapper라 명명했지만, 실제 사용은 인스턴스를 잘 사용하지 않고,
-결과값만 얻기 위해 거의 함수처첨 사용하게 되므로 함수 형태의 재명명을 함.
+결과값만 얻기 위해 거의 함수처첨 사용하게 되므로 함수 형태로 재명명을 함.
 특히 기능의 직관성을 높이기 위해 where와 같은 메소드와 어울리는 이름인 select_from으로 지음
 '''
 select_from = HailORMWrapper
